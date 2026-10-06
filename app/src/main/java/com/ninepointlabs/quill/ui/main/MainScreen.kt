@@ -182,7 +182,9 @@ fun MainScreen(
                         ) {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 items(filteredNotes, key = { it.id }) { note ->
-                                    NoteCard(note, profiles[note.pubkey])
+                                    NoteCard(note, profiles[note.pubkey], onNoteClick = { eventId ->
+                                        onItemClick(com.ninepointlabs.quill.ThreadView(eventId))
+                                    })
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outline,
                                         thickness = 1.dp
@@ -227,11 +229,32 @@ fun MainScreen(
 }
 
 @Composable
-fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile?) {
+fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile?, onNoteClick: ((String) -> Unit)? = null) {
+    val eTags = note.tags.filter { it.isNotEmpty() && it[0] == "e" }
+    val parentId = if (eTags.isNotEmpty()) {
+        eTags.lastOrNull { it.size >= 4 && it[3] == "reply" }?.get(1) ?: eTags.last()[1]
+    } else null
+    
+    var parentAuthorName by remember(parentId) { mutableStateOf<String?>(null) }
+    
+    LaunchedEffect(parentId) {
+        if (parentId != null) {
+            val pubkey = com.ninepointlabs.quill.data.DataRepository.getParentAuthor(parentId)
+            if (pubkey != null) {
+                val p = com.ninepointlabs.quill.data.DataRepository.profiles.value[pubkey]
+                parentAuthorName = p?.bestName ?: (pubkey.take(6) + "..." + pubkey.takeLast(4))
+            } else {
+                parentAuthorName = "a note"
+                com.ninepointlabs.quill.data.DataRepository.fetchNoteFromRelays(parentId)
+            }
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .then(if (onNoteClick != null) Modifier.clickable { onNoteClick(note.id) } else Modifier),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
@@ -241,6 +264,14 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
+            if (parentAuthorName != null) {
+                Text(
+                    text = "↩ replying to ${if (parentAuthorName == "a note") parentAuthorName else "@$parentAuthorName"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

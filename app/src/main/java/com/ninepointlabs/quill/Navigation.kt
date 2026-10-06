@@ -17,10 +17,17 @@ fun MainNavigation() {
   NavDisplay(
     backStack = backStack,
     onBack = { backStack.removeLastOrNull() },
-    entryProvider =
-      entryProvider {
+    entryProvider = entryProvider {
         entry<Main> {
           MainScreen(onItemClick = { navKey -> backStack.add(navKey) }, modifier = Modifier.safeDrawingPadding().padding(16.dp))
+        }
+        entry<ThreadView> {
+            com.ninepointlabs.quill.ui.thread.ThreadScreen(
+                rootEventId = it.rootEventId,
+                onBack = { backStack.removeLastOrNull() },
+                onThreadClick = { eventId -> backStack.add(ThreadView(eventId)) },
+                modifier = Modifier.safeDrawingPadding().padding(16.dp)
+            )
         }
       },
   )

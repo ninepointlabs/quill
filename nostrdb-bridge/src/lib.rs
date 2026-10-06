@@ -156,3 +156,95 @@ pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbCountEvents<
     }
     0
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbQueryThread<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    ptr: jlong,
+    event_id_hex: JString<'local>,
+    limit: jint,
+) -> jstring {
+    if ptr == 0 {
+        return env.new_string("[]").unwrap().into_raw();
+    }
+
+    let ndb = unsafe { &*(ptr as *mut Ndb) };
+    let event_id_hex_str: String = match env.get_string(&event_id_hex) {
+        Ok(s) => s.into(),
+        Err(_) => return env.new_string("[]").unwrap().into_raw(),
+    };
+
+    let mut notes_json = Vec::new();
+    if let Ok(txn) = Transaction::new(ndb) {
+        let filters = vec![
+            Filter::new()
+                .kinds(vec![1])
+                .tags(vec![event_id_hex_str.as_str()], 'e')
+                .limit(limit as u64)
+                .build()
+        ];
+        if let Ok(results) = ndb.query(&txn, &filters, limit) {
+            for res in results {
+                if let Ok(json) = res.note.json() {
+                    notes_json.push(json);
+                }
+            }
+        }
+    }
+
+    let array_json = format!("[{}]", notes_json.join(","));
+    env.new_string(array_json).unwrap().into_raw()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbQueryNoteById<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    ptr: jlong,
+    event_id_hex: JString<'local>,
+) -> jstring {
+    if ptr == 0 {
+        return env.new_string("[]").unwrap().into_raw();
+    }
+
+    let ndb = unsafe { &*(ptr as *mut Ndb) };
+    let event_id_hex_str: String = match env.get_string(&event_id_hex) {
+        Ok(s) => s.into(),
+        Err(_) => return env.new_string("[]").unwrap().into_raw(),
+    };
+
+    let mut id_bytes = [0u8; 32];
+    if event_id_hex_str.len() == 64 {
+        for i in 0..32 {
+            if let Ok(byte) = u8::from_str_radix(&event_id_hex_str[i * 2..i * 2 + 2], 16) {
+                id_bytes[i] = byte;
+            } else {
+                return env.new_string("[]").unwrap().into_raw();
+            }
+        }
+    } else {
+        return env.new_string("[]").unwrap().into_raw();
+    }
+
+    let mut notes_json = Vec::new();
+    if let Ok(txn) = Transaction::new(ndb) {
+        let filters = vec![
+            Filter::new()
+                .kinds(vec![1])
+                .ids(vec![&id_bytes])
+                .limit(1)
+                .build()
+        ];
+        if let Ok(results) = ndb.query(&txn, &filters, 1) {
+            for res in results {
+                if let Ok(json) = res.note.json() {
+                    notes_json.push(json);
+                }
+            }
+        }
+    }
+
+    let array_json = format!("[{}]", notes_json.join(","));
+    env.new_string(array_json).unwrap().into_raw()
+}

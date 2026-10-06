@@ -238,4 +238,49 @@ object DataRepository {
             emit(result)
         }
     }
+
+    fun getThread(eventId: String, limit: Int = 50): Flow<String> = flow {
+        if (ndbPtr != 0L) {
+            emit(NostrDb.ndbQueryThread(ndbPtr, eventId, limit))
+        }
+    }
+
+    fun getNoteById(eventId: String): Flow<String> = flow {
+        if (ndbPtr != 0L) {
+            emit(NostrDb.ndbQueryNoteById(ndbPtr, eventId))
+        }
+    }
+
+    fun subscribeToThread(eventId: String) {
+        val filter = buildJsonObject {
+            put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(1)) })
+            put("#e", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(eventId)) })
+            put("limit", 50)
+        }
+        relayClient.subscribe("thread_$eventId", filter.toString())
+    }
+    
+    fun fetchNoteFromRelays(eventId: String) {
+        val filter = buildJsonObject {
+            put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(1)) })
+            put("ids", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(eventId)) })
+            put("limit", 1)
+        }
+        relayClient.subscribe("note_$eventId", filter.toString())
+    }
+
+    fun getParentAuthor(eventId: String): String? {
+        if (ndbPtr == 0L) return null
+        val noteJson = NostrDb.ndbQueryNoteById(ndbPtr, eventId)
+        if (noteJson == "[]") return null
+        try {
+            val notes = json.decodeFromString<List<SignedEvent>>(noteJson)
+            if (notes.isNotEmpty()) {
+                return notes[0].pubkey
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return null
+    }
 }
