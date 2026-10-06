@@ -234,10 +234,33 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
             val parsedContent = remember(note.content) { com.ninepointlabs.quill.utils.ContentParser.parse(note.content) }
             val annotatedText = androidx.compose.ui.text.buildAnnotatedString {
                 val text = parsedContent.text
                 append(text)
+                
+                parsedContent.regularUrls.forEach { url ->
+                    var index = text.indexOf(url)
+                    while (index >= 0) {
+                        addStyle(
+                            style = androidx.compose.ui.text.SpanStyle(
+                                color = MaterialTheme.colorScheme.primary,
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            ),
+                            start = index,
+                            end = index + url.length
+                        )
+                        addStringAnnotation(
+                            tag = "url",
+                            annotation = url,
+                            start = index,
+                            end = index + url.length
+                        )
+                        index = text.indexOf(url, index + 1)
+                    }
+                }
+                
                 parsedContent.nostrRefs.forEach { ref ->
                     var index = text.indexOf(ref)
                     while (index >= 0) {
@@ -249,14 +272,30 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                             start = index,
                             end = index + ref.length
                         )
+                        addStringAnnotation(
+                            tag = "nostr",
+                            annotation = ref,
+                            start = index,
+                            end = index + ref.length
+                        )
                         index = text.indexOf(ref, index + 1)
                     }
                 }
             }
-            Text(
+            androidx.compose.foundation.text.ClickableText(
                 text = annotatedText,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                onClick = { offset ->
+                    annotatedText.getStringAnnotations("nostr", offset, offset)
+                        .firstOrNull()?.let { annotation ->
+                            val url = "https://njump.me/${annotation.item.removePrefix("nostr:")}"
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                        }
+                        ?: annotatedText.getStringAnnotations("url", offset, offset)
+                            .firstOrNull()?.let { annotation ->
+                                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(annotation.item)))
+                            }
+                }
             )
             
             parsedContent.imageUrls.forEach { imageUrl ->

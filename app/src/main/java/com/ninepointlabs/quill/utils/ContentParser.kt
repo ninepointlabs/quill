@@ -6,12 +6,13 @@ data class ParsedContent(
     val text: String,           // plain text with URLs stripped
     val imageUrls: List<String>, // detected image URLs
     val linkUrl: String?,        // first non-image URL (for preview)
-    val nostrRefs: List<String>  // nostr: references
+    val nostrRefs: List<String>, // nostr: references
+    val regularUrls: List<String> // http/https links
 )
 
 object ContentParser {
     private val urlRegex = Regex("""https?://[^\s]+""")
-    private val nostrRegex = Regex("""nostr:[^\s]+""")
+    private val nostrRegex = Regex("""nostr:(npub1|nprofile1|note1|nevent1|naddr1)[a-zA-Z0-9]+""")
     
     private val imageExts = listOf(".jpg", ".jpeg", ".png", ".gif", ".webp")
     private val imageHosts = listOf("imgur.com", "i.redd.it", "blossom.band")
@@ -33,6 +34,7 @@ object ContentParser {
         val imageUrls = mutableListOf<String>()
         var linkUrl: String? = null
         val nostrRefs = mutableListOf<String>()
+        val regularUrls = mutableListOf<String>()
         
         val urlMatches = urlRegex.findAll(content)
         val urlsToStrip = mutableListOf<String>()
@@ -46,7 +48,7 @@ object ContentParser {
                 if (linkUrl == null) {
                     linkUrl = url
                 }
-                urlsToStrip.add(url)
+                regularUrls.add(url)
             }
         }
         
@@ -64,7 +66,8 @@ object ContentParser {
             text = text.trim(),
             imageUrls = imageUrls,
             linkUrl = linkUrl,
-            nostrRefs = nostrRefs
+            nostrRefs = nostrRefs,
+            regularUrls = regularUrls
         )
     }
 }
