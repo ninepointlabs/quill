@@ -1,5 +1,6 @@
 package com.ninepointlabs.quill.ui.main
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -233,11 +234,55 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
+            val parsedContent = remember(note.content) { com.ninepointlabs.quill.utils.ContentParser.parse(note.content) }
+            val annotatedText = androidx.compose.ui.text.buildAnnotatedString {
+                val text = parsedContent.text
+                append(text)
+                parsedContent.nostrRefs.forEach { ref ->
+                    var index = text.indexOf(ref)
+                    while (index >= 0) {
+                        addStyle(
+                            style = androidx.compose.ui.text.SpanStyle(
+                                color = Color(0xFFD4AF37),
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                            ),
+                            start = index,
+                            end = index + ref.length
+                        )
+                        index = text.indexOf(ref, index + 1)
+                    }
+                }
+            }
             Text(
-                text = note.content,
+                text = annotatedText,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            
+            parsedContent.imageUrls.forEach { imageUrl ->
+                Spacer(modifier = Modifier.height(12.dp))
+                coil3.compose.SubcomposeAsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Attached image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    loading = {
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF26352F)))
+                    },
+                    error = {
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF26352F)))
+                    }
+                )
+            }
+            
+            parsedContent.linkUrl?.let { linkUrl ->
+                Spacer(modifier = Modifier.height(12.dp))
+                LinkPreviewCard(url = linkUrl)
+            }
+            
             Spacer(modifier = Modifier.height(12.dp))
             
             Row(
@@ -345,5 +390,88 @@ fun ComposeNoteContent(
                 )
             }
         )
+    }
+}
+
+@Composable
+fun LinkPreviewCard(url: String) {
+    var preview by remember { mutableStateOf<com.ninepointlabs.quill.utils.LinkPreview?>(null) }
+    val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+
+    LaunchedEffect(url) {
+        preview = com.ninepointlabs.quill.utils.LinkPreviewFetcher.fetch(url)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { uriHandler.openUri(url) },
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF18231F)),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF26352F)),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val imageUrl = preview?.imageUrl
+            if (imageUrl != null) {
+                coil3.compose.SubcomposeAsyncImage(
+                    model = imageUrl,
+                    contentDescription = "Preview Image",
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    loading = {
+                        Box(modifier = Modifier.size(60.dp).background(Color(0xFF26352F)))
+                    },
+                    error = {
+                        Box(modifier = Modifier.size(60.dp).background(Color(0xFF26352F)))
+                    }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+            } else if (preview == null) {
+                Box(modifier = Modifier.size(60.dp).background(Color(0xFF26352F)).clip(androidx.compose.foundation.shape.RoundedCornerShape(4.dp)))
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                if (preview == null) {
+                    Box(modifier = Modifier.fillMaxWidth(0.7f).height(16.dp).background(Color(0xFF26352F)))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.fillMaxWidth(0.4f).height(12.dp).background(Color(0xFF26352F)))
+                } else {
+                    Text(
+                        text = preview?.title ?: url,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = Color(0xFFECE4D0),
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    
+                    val desc = preview?.description
+                    if (!desc.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = desc,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF5E6F67),
+                            maxLines = 2,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = preview?.domain ?: "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF5E6F67)
+                    )
+                }
+            }
+        }
     }
 }
