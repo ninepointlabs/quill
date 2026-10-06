@@ -203,6 +203,7 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                     val pictureUrl = profile?.picture
                     coil3.compose.AsyncImage(
                         model = pictureUrl,
+                        imageLoader = com.ninepointlabs.quill.QuillApplication.imageLoader,
                         contentDescription = "Profile picture",
                         modifier = Modifier
                             .size(40.dp)
@@ -302,6 +303,7 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                 Spacer(modifier = Modifier.height(12.dp))
                 coil3.compose.SubcomposeAsyncImage(
                     model = imageUrl,
+                    imageLoader = com.ninepointlabs.quill.QuillApplication.imageLoader,
                     contentDescription = "Attached image",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -459,6 +461,7 @@ fun LinkPreviewCard(url: String) {
             if (imageUrl != null) {
                 coil3.compose.SubcomposeAsyncImage(
                     model = imageUrl,
+                    imageLoader = com.ninepointlabs.quill.QuillApplication.imageLoader,
                     contentDescription = "Preview Image",
                     modifier = Modifier
                         .size(60.dp)

@@ -45,9 +45,9 @@ class MainScreenViewModel : ViewModel() {
 
     private fun startPolling() {
         viewModelScope.launch {
-            while (isActive) {
+            pollFeed()
+            DataRepository.newEvents.collect {
                 pollFeed()
-                delay(3000)
             }
         }
     }

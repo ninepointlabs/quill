@@ -37,6 +37,34 @@ object DataRepository {
     private var currentFollowsCreatedAt = -1L
     private val followedPubkeys = mutableSetOf<String>()
 
+    private val _newEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val newEvents: SharedFlow<Unit> = _newEvents.asSharedFlow()
+
+    private fun loadProfilesFromDisk(context: Context) {
+        val file = File(context.filesDir, "profiles.json")
+        if (file.exists()) {
+            try {
+                val content = file.readText()
+                val map = json.decodeFromString<Map<String, Profile>>(content)
+                _profiles.value = map
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun saveProfilesToDisk(context: Context) {
+        scope?.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val file = File(context.filesDir, "profiles.json")
+            try {
+                val content = json.encodeToString(kotlinx.serialization.serializer(), _profiles.value)
+                file.writeText(content)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun initDb(context: Context, coroutineScope: CoroutineScope) {
         this.scope = coroutineScope
         omostrichClient = OmostrichClient(scope = coroutineScope)
@@ -46,6 +74,9 @@ object DataRepository {
             dbDir.mkdirs()
         }
         ndbPtr = NostrDb.ndbOpen(dbDir.absolutePath)
+        
+        loadProfilesFromDisk(context)
+        
         relayClient = RelayClient(httpClient, ndbPtr, scope!!)
 
         scope!!.launch {
@@ -87,6 +118,7 @@ object DataRepository {
                                 _profiles.update { currentMap ->
                                     currentMap + (event.pubkey to profile)
                                 }
+                                saveProfilesToDisk(context)
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
@@ -111,6 +143,7 @@ object DataRepository {
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
+                    _newEvents.tryEmit(Unit)
                 }
             }
         }
