@@ -25,6 +25,9 @@ class MainScreenViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
     val uiState: StateFlow<FeedUiState> = _uiState
 
+    private val _myNotesState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
+    val myNotesState: StateFlow<FeedUiState> = _myNotesState
+
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab
 
@@ -75,8 +78,19 @@ class MainScreenViewModel : ViewModel() {
                     DataRepository.fetchMissingProfiles(events.map { it.pubkey })
                 }
             }
+            DataRepository.getMyNotes(50).collect { jsonString ->
+                val events = try {
+                    json.decodeFromString<List<SignedEvent>>(jsonString)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                if (events.isNotEmpty() || _myNotesState.value is FeedUiState.Loaded) {
+                    _myNotesState.update { FeedUiState.Loaded(events) }
+                }
+            }
         } catch (e: Exception) {
             _uiState.update { FeedUiState.Error(e.message ?: "Unknown error") }
+            _myNotesState.update { FeedUiState.Error(e.message ?: "Unknown error") }
         }
     }
 

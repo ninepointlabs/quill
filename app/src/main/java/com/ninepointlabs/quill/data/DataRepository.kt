@@ -230,4 +230,12 @@ object DataRepository {
             emit(result)
         }
     }
+
+    fun getMyNotes(limit: Int = 50): Flow<String> = flow {
+        val userPubkey = _userPubkeyHex.value
+        if (ndbPtr != 0L && userPubkey != null) {
+            val result = NostrDb.ndbQueryNotesByAuthor(ndbPtr, userPubkey, limit)
+            emit(result)
+        }
+    }
 }

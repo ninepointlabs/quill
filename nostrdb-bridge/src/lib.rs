@@ -91,6 +91,53 @@ pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbQueryNotes<'
 }
 
 #[no_mangle]
+pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbQueryNotesByAuthor<'local>(
+    mut env: JNIEnv<'local>,
+    _class: JClass<'local>,
+    ptr: jlong,
+    author_hex: JString<'local>,
+    limit: jint,
+) -> jstring {
+    if ptr == 0 {
+        return env.new_string("[]").unwrap().into_raw();
+    }
+
+    let ndb = unsafe { &*(ptr as *mut Ndb) };
+    let author_hex_str: String = match env.get_string(&author_hex) {
+        Ok(s) => s.into(),
+        Err(_) => return env.new_string("[]").unwrap().into_raw(),
+    };
+
+    let mut author_bytes = [0u8; 32];
+    if author_hex_str.len() == 64 {
+        for i in 0..32 {
+            if let Ok(byte) = u8::from_str_radix(&author_hex_str[i * 2..i * 2 + 2], 16) {
+                author_bytes[i] = byte;
+            } else {
+                return env.new_string("[]").unwrap().into_raw();
+            }
+        }
+    } else {
+        return env.new_string("[]").unwrap().into_raw();
+    }
+
+    let mut notes_json = Vec::new();
+    if let Ok(txn) = Transaction::new(ndb) {
+        let filters = vec![Filter::new().kinds(vec![1]).authors(vec![&author_bytes]).limit(limit as u64).build()];
+        if let Ok(results) = ndb.query(&txn, &filters, limit) {
+            for res in results {
+                if let Ok(json) = res.note.json() {
+                    notes_json.push(json);
+                }
+            }
+        }
+    }
+
+    let array_json = format!("[{}]", notes_json.join(","));
+    env.new_string(array_json).unwrap().into_raw()
+}
+
+#[no_mangle]
 pub extern "system" fn Java_com_ninepointlabs_quill_data_NostrDb_ndbCountEvents<'local>(
     _env: JNIEnv<'local>,
     _class: JClass<'local>,

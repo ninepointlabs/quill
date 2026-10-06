@@ -9,5 +9,6 @@ object NostrDb {
     external fun ndbClose(ptr: Long)
     external fun ndbIngestEvent(ptr: Long, eventJson: String): Boolean
     external fun ndbQueryNotes(ptr: Long, limit: Int): String
+    external fun ndbQueryNotesByAuthor(ptr: Long, authorHex: String, limit: Int): String
     external fun ndbCountEvents(ptr: Long): Long
 }

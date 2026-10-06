@@ -33,7 +33,10 @@ fun MainScreen(
     modifier: Modifier = Modifier,
     viewModel: MainScreenViewModel = viewModel { MainScreenViewModel() }
 ) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val feedState by viewModel.uiState.collectAsStateWithLifecycle()
+    val myNotesState by viewModel.myNotesState.collectAsStateWithLifecycle()
+    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+    val state = if (selectedTab == 2) myNotesState else feedState
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isPublishing by viewModel.isPublishing.collectAsStateWithLifecycle()
     val publishError by viewModel.publishError.collectAsStateWithLifecycle()
@@ -63,7 +66,6 @@ fun MainScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
             Column {
                 TopAppBar(
                     title = { 
@@ -142,12 +144,10 @@ fun MainScreen(
                 }
                 is FeedUiState.Loaded -> {
                     val userPubkey = viewModel.userPubkeyHex.collectAsStateWithLifecycle().value
-                    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
                     
                     val filteredNotes = remember(s.notes, selectedTab, userPubkey) {
                         when (selectedTab) {
                             1 -> s.notes.filter { note -> note.tags.any { it.isNotEmpty() && it[0] == "e" } }
-                            2 -> s.notes.filter { note -> note.pubkey == userPubkey }
                             else -> s.notes
                         }
                     }
