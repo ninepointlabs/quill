@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,6 +63,7 @@ fun MainScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
+            val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
             Column {
                 TopAppBar(
                     title = { 
@@ -76,10 +78,39 @@ fun MainScreen(
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
                     )
                 )
-                HorizontalDivider(
-                    thickness = 1.dp,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                )
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color(0xFF0F1715),
+                    divider = {
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                    },
+                    indicator = { tabPositions ->
+                        if (selectedTab < tabPositions.size) {
+                            TabRowDefaults.SecondaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                color = Color(0xFFD9AE5B)
+                            )
+                        }
+                    }
+                ) {
+                    val tabs = listOf("Following", "Replies", "My Notes")
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { viewModel.selectTab(index) },
+                            text = { 
+                                Text(
+                                    title, 
+                                    color = if (selectedTab == index) Color(0xFFD9AE5B) else Color(0xFF5E6F67),
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                ) 
+                            }
+                        )
+                    }
+                }
             }
         },
         floatingActionButton = {
@@ -110,9 +141,25 @@ fun MainScreen(
                     )
                 }
                 is FeedUiState.Loaded -> {
-                    if (s.notes.isEmpty()) {
+                    val userPubkey = viewModel.userPubkeyHex.collectAsStateWithLifecycle().value
+                    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
+                    
+                    val filteredNotes = remember(s.notes, selectedTab, userPubkey) {
+                        when (selectedTab) {
+                            1 -> s.notes.filter { note -> note.tags.any { it.isNotEmpty() && it[0] == "e" } }
+                            2 -> s.notes.filter { note -> note.pubkey == userPubkey }
+                            else -> s.notes
+                        }
+                    }
+
+                    if (filteredNotes.isEmpty()) {
+                        val emptyText = when (selectedTab) {
+                            1 -> "No replies yet."
+                            2 -> "You haven't posted anything yet."
+                            else -> feedError ?: "No notes in your feed yet."
+                        }
                         Text(
-                            text = feedError ?: "No notes in your feed yet.",
+                            text = emptyText,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.align(Alignment.Center).padding(16.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -134,7 +181,7 @@ fun MainScreen(
                             }
                         ) {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                items(s.notes, key = { it.id }) { note ->
+                                items(filteredNotes, key = { it.id }) { note ->
                                     NoteCard(note, profiles[note.pubkey])
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outline,

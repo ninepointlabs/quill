@@ -25,6 +25,15 @@ class MainScreenViewModel : ViewModel() {
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
     val uiState: StateFlow<FeedUiState> = _uiState
 
+    private val _selectedTab = MutableStateFlow(0)
+    val selectedTab: StateFlow<Int> = _selectedTab
+
+    fun selectTab(index: Int) {
+        _selectedTab.value = index
+    }
+
+    val userPubkeyHex: StateFlow<String?> = DataRepository.userPubkeyHex
+
     val connectionState: StateFlow<OmostrichConnectionState> = DataRepository.connectionState
     val feedError: StateFlow<String?> = DataRepository.feedError
     

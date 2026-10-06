@@ -26,6 +26,9 @@ object DataRepository {
     private val _connectionState = MutableStateFlow(OmostrichConnectionState.CHECKING)
     val connectionState: StateFlow<OmostrichConnectionState> = _connectionState.asStateFlow()
 
+    private val _userPubkeyHex = MutableStateFlow<String?>(null)
+    val userPubkeyHex: StateFlow<String?> = _userPubkeyHex.asStateFlow()
+
     private val _feedError = MutableStateFlow<String?>(null)
     val feedError: StateFlow<String?> = _feedError.asStateFlow()
 
@@ -101,7 +104,9 @@ object DataRepository {
             relays.forEach { relayClient.addRelay(it) }
 
             status.pubkeyHex?.let { userPubkeyHex ->
+                _userPubkeyHex.value = userPubkeyHex
                 fetchFollows(userPubkeyHex)
+                subscribeToOwnNotes(userPubkeyHex)
                 
                 relayClient.events.collect { eventJson ->
                     try {
@@ -166,6 +171,15 @@ object DataRepository {
             put("limit", 1)
         }
         relayClient.subscribe("follows", filter.toString())
+    }
+
+    fun subscribeToOwnNotes(userPubkeyHex: String) {
+        val filter = buildJsonObject {
+            put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(1)) })
+            put("authors", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(userPubkeyHex)) })
+            put("limit", 50)
+        }
+        relayClient.subscribe("own_notes", filter.toString())
     }
 
     fun subscribeToFeed(followedPubkeys: List<String>) {
