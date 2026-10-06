@@ -4,16 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ninepointlabs.quill.data.DataRepository
 import com.ninepointlabs.quill.network.SignedEvent
+import com.ninepointlabs.quill.network.OmostrichConnectionState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.isActive
 
 sealed interface FeedUiState {
     object Loading : FeedUiState
-    data class Error(val throwable: Throwable) : FeedUiState
+    data class Error(val message: String) : FeedUiState
     data class Loaded(val notes: List<SignedEvent>) : FeedUiState
 }
 
@@ -22,6 +24,9 @@ class MainScreenViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow<FeedUiState>(FeedUiState.Loading)
     val uiState: StateFlow<FeedUiState> = _uiState
+
+    val connectionState: StateFlow<OmostrichConnectionState> = DataRepository.connectionState
+    val feedError: StateFlow<String?> = DataRepository.feedError
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
@@ -33,31 +38,41 @@ class MainScreenViewModel : ViewModel() {
     val publishError: StateFlow<String?> = _publishError
 
     init {
-        // Subscribe to a known popular pubkey or feed to get some data
-        DataRepository.subscribeToFollowFeed("npub1sg6plzptd64u62a878hep2kev88swjh3tw00gjsfl8f237lmu63q0uf63m")
-        refresh()
+        startPolling()
+    }
+
+    private fun startPolling() {
+        viewModelScope.launch {
+            while (isActive) {
+                pollFeed()
+                delay(3000)
+            }
+        }
+    }
+
+    private suspend fun pollFeed() {
+        try {
+            DataRepository.getFeed(50).collect { jsonString ->
+                val events = try {
+                    json.decodeFromString<List<SignedEvent>>(jsonString)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                // Only update to Loaded if we actually have something, or if it's already Loaded
+                if (events.isNotEmpty() || _uiState.value is FeedUiState.Loaded) {
+                    _uiState.update { FeedUiState.Loaded(events) }
+                }
+            }
+        } catch (e: Exception) {
+            _uiState.update { FeedUiState.Error(e.message ?: "Unknown error") }
+        }
     }
 
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            try {
-                // Give the DB a slight delay to ingest initial subscription events
-                delay(300)
-
-                DataRepository.getFeed(50).collect { jsonString ->
-                    val events = try {
-                        json.decodeFromString<List<SignedEvent>>(jsonString)
-                    } catch (e: Exception) {
-                        emptyList()
-                    }
-                    _uiState.update { FeedUiState.Loaded(events) }
-                }
-            } catch (e: Exception) {
-                _uiState.update { FeedUiState.Error(e) }
-            } finally {
-                _isRefreshing.value = false
-            }
+            pollFeed()
+            _isRefreshing.value = false
         }
     }
 
@@ -73,7 +88,7 @@ class MainScreenViewModel : ViewModel() {
                 val result = DataRepository.publishNote(content)
                 if (result != null) {
                     onSuccess()
-                    refresh() // Load the newly published note
+                    pollFeed() // Load the newly published note
                 } else {
                     _publishError.value = "Failed to publish"
                 }

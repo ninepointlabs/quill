@@ -1,6 +1,8 @@
 package com.ninepointlabs.quill.ui.main
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,6 +33,8 @@ fun MainScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isPublishing by viewModel.isPublishing.collectAsStateWithLifecycle()
     val publishError by viewModel.publishError.collectAsStateWithLifecycle()
+    val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
+    val feedError by viewModel.feedError.collectAsStateWithLifecycle()
 
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -44,12 +48,25 @@ fun MainScreen(
         }
     }
 
+    val dotColor = when (connectionState) {
+        com.ninepointlabs.quill.network.OmostrichConnectionState.CONNECTED_UNLOCKED -> androidx.compose.ui.graphics.Color(0xFF76A36B)
+        com.ninepointlabs.quill.network.OmostrichConnectionState.CONNECTED_LOCKED -> androidx.compose.ui.graphics.Color(0xFFD9AE5B)
+        com.ninepointlabs.quill.network.OmostrichConnectionState.DISCONNECTED -> androidx.compose.ui.graphics.Color(0xFFC9503F)
+        com.ninepointlabs.quill.network.OmostrichConnectionState.CHECKING -> androidx.compose.ui.graphics.Color.Gray
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
             Column {
                 TopAppBar(
-                    title = { Text("Quill", fontWeight = FontWeight.Light) },
+                    title = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Quill", fontWeight = FontWeight.Light)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Box(modifier = Modifier.size(8.dp).background(dotColor, CircleShape))
+                        }
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background,
                         titleContentColor = MaterialTheme.colorScheme.onBackground,
@@ -83,7 +100,7 @@ fun MainScreen(
                 }
                 is FeedUiState.Error -> {
                     Text(
-                        text = "Error: ${s.throwable.message}",
+                        text = "Error: ${s.message}",
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.align(Alignment.Center).padding(16.dp)
                     )
@@ -91,9 +108,10 @@ fun MainScreen(
                 is FeedUiState.Loaded -> {
                     if (s.notes.isEmpty()) {
                         Text(
-                            text = "No notes yet.",
+                            text = feedError ?: "No notes in your feed yet.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.align(Alignment.Center)
+                            modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     } else {
                         val ptrState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
