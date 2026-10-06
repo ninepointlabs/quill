@@ -13,6 +13,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -35,6 +37,7 @@ fun MainScreen(
     val publishError by viewModel.publishError.collectAsStateWithLifecycle()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val feedError by viewModel.feedError.collectAsStateWithLifecycle()
+    val profiles by viewModel.profiles.collectAsStateWithLifecycle()
 
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -131,7 +134,7 @@ fun MainScreen(
                         ) {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 items(s.notes, key = { it.id }) { note ->
-                                    NoteCard(note)
+                                    NoteCard(note, profiles[note.pubkey])
                                     HorizontalDivider(
                                         color = MaterialTheme.colorScheme.outline,
                                         thickness = 1.dp
@@ -176,7 +179,7 @@ fun MainScreen(
 }
 
 @Composable
-fun NoteCard(note: SignedEvent) {
+fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile?) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -195,20 +198,34 @@ fun NoteCard(note: SignedEvent) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val pubkeyPrefix = note.pubkey.take(6)
-                val pubkeyRest = if (note.pubkey.length > 6) "..." + note.pubkey.takeLast(4) else ""
-                
-                Text(
-                    text = androidx.compose.ui.text.buildAnnotatedString {
-                        withStyle(style = androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.primary)) {
-                            append(pubkeyPrefix)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val pictureUrl = profile?.picture
+                    coil3.compose.AsyncImage(
+                        model = pictureUrl,
+                        contentDescription = "Profile picture",
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(Color(0xFF26352F), CircleShape)
+                            .clip(CircleShape),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        val bestName = profile?.bestName ?: (note.pubkey.take(6) + "..." + note.pubkey.takeLast(4))
+                        Text(
+                            text = bestName,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        if (!profile?.nip05.isNullOrEmpty()) {
+                            Text(
+                                text = profile?.nip05 ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF5E6F67)
+                            )
                         }
-                        withStyle(style = androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
-                            append(pubkeyRest)
-                        }
-                    },
-                    style = MaterialTheme.typography.titleMedium
-                )
+                    }
+                }
                 Text(
                     text = formatRelativeTime(note.created_at),
                     style = MaterialTheme.typography.bodySmall,

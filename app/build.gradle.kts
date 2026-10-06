@@ -87,6 +87,10 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.kotlinx.coroutines.android)
+  
+  // Image Loading
+  implementation(libs.coil.compose)
+  implementation(libs.coil.network.okhttp)
 }
 
 val cargoBuildArm64 = tasks.register<Exec>("cargoBuildArm64") {

@@ -27,6 +27,8 @@ class MainScreenViewModel : ViewModel() {
 
     val connectionState: StateFlow<OmostrichConnectionState> = DataRepository.connectionState
     val feedError: StateFlow<String?> = DataRepository.feedError
+    
+    val profiles: StateFlow<Map<String, com.ninepointlabs.quill.network.Profile>> = DataRepository.profiles
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
@@ -61,6 +63,7 @@ class MainScreenViewModel : ViewModel() {
                 // Only update to Loaded if we actually have something, or if it's already Loaded
                 if (events.isNotEmpty() || _uiState.value is FeedUiState.Loaded) {
                     _uiState.update { FeedUiState.Loaded(events) }
+                    DataRepository.fetchMissingProfiles(events.map { it.pubkey })
                 }
             }
         } catch (e: Exception) {

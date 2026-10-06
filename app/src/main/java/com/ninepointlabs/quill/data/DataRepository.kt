@@ -10,6 +10,8 @@ import java.io.File
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 object DataRepository {
     private var ndbPtr: Long = 0
@@ -26,6 +28,10 @@ object DataRepository {
 
     private val _feedError = MutableStateFlow<String?>(null)
     val feedError: StateFlow<String?> = _feedError.asStateFlow()
+
+    private val _profiles = MutableStateFlow<Map<String, Profile>>(emptyMap())
+    val profiles: StateFlow<Map<String, Profile>> = _profiles.asStateFlow()
+    private val queriedProfiles = mutableSetOf<String>()
 
     private val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
     private var currentFollowsCreatedAt = -1L
@@ -69,7 +75,22 @@ object DataRepository {
                 relayClient.events.collect { eventJson ->
                     try {
                         val event = json.decodeFromString<SignedEvent>(eventJson)
-                        if (event.kind == 3 && event.pubkey == userPubkeyHex) {
+                        if (event.kind == 0) {
+                            try {
+                                val contentJson = json.decodeFromString<kotlinx.serialization.json.JsonObject>(event.content)
+                                val displayName = contentJson["display_name"]?.jsonPrimitive?.contentOrNull
+                                val name = contentJson["name"]?.jsonPrimitive?.contentOrNull
+                                val picture = contentJson["picture"]?.jsonPrimitive?.contentOrNull
+                                val nip05 = contentJson["nip05"]?.jsonPrimitive?.contentOrNull
+                                
+                                val profile = Profile(event.pubkey, displayName, name, picture, nip05)
+                                _profiles.update { currentMap ->
+                                    currentMap + (event.pubkey to profile)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        } else if (event.kind == 3 && event.pubkey == userPubkeyHex) {
                             if (event.created_at > currentFollowsCreatedAt) {
                                 currentFollowsCreatedAt = event.created_at
                                 val pTags = event.tags.filter { it.isNotEmpty() && it[0] == "p" }.mapNotNull { it.getOrNull(1) }
@@ -115,14 +136,41 @@ object DataRepository {
     }
 
     fun subscribeToFeed(followedPubkeys: List<String>) {
-        val filter = buildJsonObject {
+        val filter1 = buildJsonObject {
             put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(1)) })
             put("authors", buildJsonArray { 
                 followedPubkeys.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
             })
             put("limit", 50)
         }
-        relayClient.subscribe("feed", filter.toString())
+        val filter0 = buildJsonObject {
+            put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(0)) })
+            put("authors", buildJsonArray { 
+                followedPubkeys.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+            })
+        }
+        relayClient.subscribe("feed", filter1.toString())
+        relayClient.subscribe("feed_profiles", filter0.toString())
+    }
+
+    fun fetchMissingProfiles(pubkeys: List<String>) {
+        val currentProfiles = _profiles.value
+        val missing = pubkeys.distinct().filter { 
+            !currentProfiles.containsKey(it) && !queriedProfiles.contains(it) 
+        }
+        if (missing.isEmpty()) return
+        
+        queriedProfiles.addAll(missing)
+        
+        missing.chunked(50).forEachIndexed { index, batch ->
+            val filter = buildJsonObject {
+                put("kinds", buildJsonArray { add(kotlinx.serialization.json.JsonPrimitive(0)) })
+                put("authors", buildJsonArray { 
+                    batch.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) }
+                })
+            }
+            relayClient.subscribe("profiles_${System.currentTimeMillis()}_$index", filter.toString())
+        }
     }
 
     suspend fun publishNote(content: String): PublishResult? {
