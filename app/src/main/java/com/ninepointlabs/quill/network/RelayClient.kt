@@ -11,7 +11,8 @@ class RelayConnection(
     val url: String,
     private val client: OkHttpClient,
     private val ndbPtr: Long,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val onEvent: (String) -> Unit
 ) {
     private var webSocket: WebSocket? = null
     private val _state = MutableStateFlow(RelayState.DISCONNECTED)
@@ -51,6 +52,7 @@ class RelayConnection(
                                 if (array.size > 2) {
                                     val eventJson = array[2].jsonObject.toString()
                                     NostrDb.ndbIngestEvent(ndbPtr, eventJson)
+                                    onEvent(eventJson)
                                 }
                             }
                             "EOSE" -> {
@@ -118,10 +120,15 @@ class RelayClient(
     private val scope: CoroutineScope
 ) {
     private val connections = mutableMapOf<String, RelayConnection>()
+    
+    private val _events = MutableSharedFlow<String>(extraBufferCapacity = 100)
+    val events: SharedFlow<String> = _events.asSharedFlow()
 
     fun addRelay(url: String) {
         if (!connections.containsKey(url)) {
-            val conn = RelayConnection(url, client, ndbPtr, scope)
+            val conn = RelayConnection(url, client, ndbPtr, scope) { eventJson ->
+                _events.tryEmit(eventJson)
+            }
             connections[url] = conn
             conn.connect()
         }

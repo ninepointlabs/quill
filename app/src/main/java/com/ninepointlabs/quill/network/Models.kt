@@ -14,6 +14,7 @@ data class OmostrichResponse(
 data class OmostrichStatus(
     val locked: Boolean,
     val npub: String? = null,
+    val pubkeyHex: String? = null,
     val relays: List<String>? = null
 )
 
@@ -47,5 +48,12 @@ enum class RelayState {
     RECEIVING,
     EOSE,
     ERROR,
+    DISCONNECTED
+}
+
+enum class OmostrichConnectionState {
+    CHECKING,
+    CONNECTED_UNLOCKED,
+    CONNECTED_LOCKED,
     DISCONNECTED
 }
