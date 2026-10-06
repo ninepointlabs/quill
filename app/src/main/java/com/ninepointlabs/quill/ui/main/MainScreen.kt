@@ -236,7 +236,7 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
             }
             Spacer(modifier = Modifier.height(8.dp))
             val context = androidx.compose.ui.platform.LocalContext.current
-            val parsedContent = remember(note.content) { com.ninepointlabs.quill.utils.ContentParser.parse(note.content) }
+            val parsedContent = remember(note.content, note.tags) { com.ninepointlabs.quill.utils.ContentParser.parse(note.content, note.tags) }
             val annotatedText = androidx.compose.ui.text.buildAnnotatedString {
                 val text = parsedContent.text
                 append(text)
@@ -317,6 +317,50 @@ fun NoteCard(note: SignedEvent, profile: com.ninepointlabs.quill.network.Profile
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF26352F)))
                     }
                 )
+            }
+            
+            parsedContent.blossomMedia.filter { it.isImage }.forEach { media ->
+                Spacer(modifier = Modifier.height(12.dp))
+                coil3.compose.SubcomposeAsyncImage(
+                    model = media.url,
+                    imageLoader = com.ninepointlabs.quill.QuillApplication.imageLoader,
+                    contentDescription = "Blossom image",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    loading = {
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF26352F)))
+                    },
+                    error = {
+                        Box(modifier = Modifier.fillMaxWidth().height(200.dp).background(Color(0xFF26352F)))
+                    }
+                )
+            }
+            
+            parsedContent.blossomMedia.filter { it.isVideo }.forEach { media ->
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clickable {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(media.url))
+                            context.startActivity(intent)
+                        },
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF18231F))
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Video",
+                            modifier = Modifier.size(48.dp),
+                            tint = Color(0xFFD9AE5B)
+                        )
+                    }
+                }
             }
             
             parsedContent.linkUrl?.let { linkUrl ->
