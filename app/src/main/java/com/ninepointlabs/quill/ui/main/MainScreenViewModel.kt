@@ -10,10 +10,10 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
-class MainScreenViewModel(dataRepository: DataRepository) : ViewModel() {
+class MainScreenViewModel : ViewModel() {
   val uiState: StateFlow<MainScreenUiState> =
-    dataRepository.data
-      .map<List<String>, MainScreenUiState>(::Success)
+    DataRepository.getFeed(50)
+      .map<String, MainScreenUiState> { Success(listOf(it)) }
       .catch { emit(MainScreenUiState.Error(it)) }
       .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainScreenUiState.Loading)
 }

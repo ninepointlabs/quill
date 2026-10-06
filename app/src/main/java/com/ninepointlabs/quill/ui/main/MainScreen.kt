@@ -9,14 +9,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
-import com.ninepointlabs.quill.data.DefaultDataRepository
 import com.ninepointlabs.quill.theme.QuillTheme
 
 @Composable
 fun MainScreen(
   onItemClick: (NavKey) -> Unit,
   modifier: Modifier = Modifier,
-  viewModel: MainScreenViewModel = viewModel { MainScreenViewModel(DefaultDataRepository()) },
+  viewModel: MainScreenViewModel = viewModel { MainScreenViewModel() },
 ) {
   val state by viewModel.uiState.collectAsStateWithLifecycle()
   when (state) {
