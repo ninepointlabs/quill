@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,16 +47,27 @@ fun MainScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text("Quill") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            Column {
+                TopAppBar(
+                    title = { Text("Quill", fontWeight = FontWeight.Light) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    )
                 )
-            )
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showBottomSheet = true }) {
+            FloatingActionButton(
+                onClick = { showBottomSheet = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Compose Note")
             }
         },
@@ -64,7 +76,10 @@ fun MainScreen(
         Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
             when (val s = state) {
                 is FeedUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
                 is FeedUiState.Error -> {
                     Text(
@@ -77,17 +92,32 @@ fun MainScreen(
                     if (s.notes.isEmpty()) {
                         Text(
                             text = "No notes yet.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.align(Alignment.Center)
                         )
                     } else {
+                        val ptrState = androidx.compose.material3.pulltorefresh.rememberPullToRefreshState()
                         PullToRefreshBox(
                             isRefreshing = isRefreshing,
-                            onRefresh = { viewModel.refresh() }
+                            onRefresh = { viewModel.refresh() },
+                            state = ptrState,
+                            indicator = {
+                                androidx.compose.material3.pulltorefresh.PullToRefreshDefaults.Indicator(
+                                    modifier = Modifier.align(Alignment.TopCenter),
+                                    isRefreshing = isRefreshing,
+                                    containerColor = androidx.compose.ui.graphics.Color.Transparent,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    state = ptrState
+                                )
+                            }
                         ) {
                             LazyColumn(modifier = Modifier.fillMaxSize()) {
                                 items(s.notes, key = { it.id }) { note ->
                                     NoteCard(note)
-                                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                                    HorizontalDivider(
+                                        color = MaterialTheme.colorScheme.outline,
+                                        thickness = 1.dp
+                                    )
                                 }
                             }
                         }
@@ -100,7 +130,9 @@ fun MainScreen(
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
-            sheetState = sheetState
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurfaceVariant) }
         ) {
             ComposeNoteContent(
                 isPublishing = isPublishing,
@@ -127,55 +159,68 @@ fun MainScreen(
 
 @Composable
 fun NoteCard(note: SignedEvent) {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
-            val authorName = if (note.pubkey.length > 10) {
-                "${note.pubkey.take(6)}...${note.pubkey.takeLast(4)}"
-            } else note.pubkey
-
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val pubkeyPrefix = note.pubkey.take(6)
+                val pubkeyRest = if (note.pubkey.length > 6) "..." + note.pubkey.takeLast(4) else ""
+                
+                Text(
+                    text = androidx.compose.ui.text.buildAnnotatedString {
+                        withStyle(style = androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.primary)) {
+                            append(pubkeyPrefix)
+                        }
+                        withStyle(style = androidx.compose.ui.text.SpanStyle(color = MaterialTheme.colorScheme.onSurfaceVariant)) {
+                            append(pubkeyRest)
+                        }
+                    },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = formatRelativeTime(note.created_at),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = authorName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                text = note.content,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Text(
-                text = formatRelativeTime(note.created_at),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = note.content,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Reply", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Share, contentDescription = "Repost", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
-                Icon(Icons.Default.Star, contentDescription = "Zap", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Reply", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Share, contentDescription = "Repost", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Like", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = { /* stub */ }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Star, contentDescription = "Zap", modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }
@@ -211,18 +256,27 @@ fun ComposeNoteContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onCancel) {
+            TextButton(
+                onClick = onCancel,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant)
+            ) {
                 Text("Cancel")
             }
             Button(
                 onClick = { onPublish(text) },
-                enabled = text.isNotBlank() && text.length <= maxChars && !isPublishing
+                enabled = text.isNotBlank() && text.length <= maxChars && !isPublishing,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.outline,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    disabledContentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                )
             ) {
                 if (isPublishing) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
+                        color = MaterialTheme.colorScheme.primary
                     )
                 } else {
                     Text("Post")
@@ -238,13 +292,21 @@ fun ComposeNoteContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 150.dp),
-            placeholder = { Text("What's happening?") },
+            placeholder = { Text("What's happening?", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.background,
+                unfocusedContainerColor = MaterialTheme.colorScheme.background,
+                focusedTextColor = MaterialTheme.colorScheme.onBackground,
+                unfocusedTextColor = MaterialTheme.colorScheme.onBackground,
+                focusedBorderColor = MaterialTheme.colorScheme.outline,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            ),
             supportingText = {
                 Text(
                     text = "${text.length} / $maxChars",
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                    color = if (text.length >= maxChars) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (text.length >= 250) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         )

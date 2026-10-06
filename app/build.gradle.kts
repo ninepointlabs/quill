@@ -89,7 +89,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.android)
 }
 
-val cargoBuildTask = tasks.register<Exec>("cargoBuild") {
+val cargoBuildArm64 = tasks.register<Exec>("cargoBuildArm64") {
     val ndkHome = File(System.getProperty("user.home"), ".local/share/mise/installs/android-sdk/latest/ndk/28.2.13676358").absolutePath
     val toolchain = "$ndkHome/toolchains/llvm/prebuilt/linux-x86_64"
     val api = 26
@@ -106,14 +106,37 @@ val cargoBuildTask = tasks.register<Exec>("cargoBuild") {
     commandLine("cargo", "build", "--target", "aarch64-linux-android")
 }
 
-val copyRustLibsTask = tasks.register<Copy>("copyRustLibs") {
-    dependsOn(cargoBuildTask)
+val cargoBuildX86 = tasks.register<Exec>("cargoBuildX86") {
+    val ndkHome = File(System.getProperty("user.home"), ".local/share/mise/installs/android-sdk/latest/ndk/28.2.13676358").absolutePath
+    val toolchain = "$ndkHome/toolchains/llvm/prebuilt/linux-x86_64"
+    val api = 26
+    
+    environment("NDK", ndkHome)
+    environment("TOOLCHAIN", toolchain)
+    environment("API", api.toString())
+    environment("CC_x86_64_linux_android", "$toolchain/bin/x86_64-linux-android${api}-clang")
+    environment("AR_x86_64_linux_android", "$toolchain/bin/llvm-ar")
+    environment("CFLAGS_x86_64_linux_android", "--sysroot=$toolchain/sysroot")
+    environment("ANDROID_NDK_HOME", ndkHome)
+    
+    workingDir = File(project.rootDir, "nostrdb-bridge")
+    commandLine("cargo", "build", "--target", "x86_64-linux-android")
+}
+
+val copyRustLibsArm64Task = tasks.register<Copy>("copyRustLibsArm64") {
+    dependsOn(cargoBuildArm64)
     from(File(project.rootDir, "nostrdb-bridge/target/aarch64-linux-android/debug/libnostrdb_bridge.so"))
     into(File(project.projectDir, "src/main/jniLibs/arm64-v8a"))
 }
 
+val copyRustLibsX86Task = tasks.register<Copy>("copyRustLibsX86") {
+    dependsOn(cargoBuildX86)
+    from(File(project.rootDir, "nostrdb-bridge/target/x86_64-linux-android/debug/libnostrdb_bridge.so"))
+    into(File(project.projectDir, "src/main/jniLibs/x86_64"))
+}
+
 tasks.named("preBuild") {
-    dependsOn(copyRustLibsTask)
+    dependsOn(copyRustLibsArm64Task, copyRustLibsX86Task)
 }
 
 android {
