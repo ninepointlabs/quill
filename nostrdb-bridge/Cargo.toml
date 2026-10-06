@@ -1,0 +1,11 @@
+[package]
+name = "nostrdb-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21.1"
+nostrdb = { path = "/tmp/nostrdb-rs/nostrdb_rs" }
