@@ -10,12 +10,18 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.ninepointlabs.quill.theme.QuillTheme
 import com.ninepointlabs.quill.data.DataRepository
+import com.ninepointlabs.quill.data.initDbDemo
 import androidx.lifecycle.lifecycleScope
 
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    DataRepository.initDb(applicationContext, lifecycleScope)
+    
+    if (BuildConfig.DEBUG) {
+        DataRepository.initDbDemo(applicationContext, lifecycleScope)
+    } else {
+        DataRepository.initDb(applicationContext, lifecycleScope)
+    }
 
     enableEdgeToEdge()
     setContent {

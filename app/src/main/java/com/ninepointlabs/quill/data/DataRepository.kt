@@ -14,25 +14,25 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
 object DataRepository {
-    private var ndbPtr: Long = 0
+    internal var ndbPtr: Long = 0
     private val httpClient = OkHttpClient()
     
     private var scope: CoroutineScope? = null
     lateinit var omostrichClient: OmostrichClient
-        private set
+        internal set
     lateinit var relayClient: RelayClient
-        private set
+        internal set
 
-    private val _connectionState = MutableStateFlow(OmostrichConnectionState.CHECKING)
+    internal val _connectionState = MutableStateFlow(OmostrichConnectionState.CHECKING)
     val connectionState: StateFlow<OmostrichConnectionState> = _connectionState.asStateFlow()
 
-    private val _userPubkeyHex = MutableStateFlow<String?>(null)
+    internal val _userPubkeyHex = MutableStateFlow<String?>(null)
     val userPubkeyHex: StateFlow<String?> = _userPubkeyHex.asStateFlow()
 
-    private val _feedError = MutableStateFlow<String?>(null)
+    internal val _feedError = MutableStateFlow<String?>(null)
     val feedError: StateFlow<String?> = _feedError.asStateFlow()
 
-    private val _profiles = MutableStateFlow<Map<String, Profile>>(emptyMap())
+    internal val _profiles = MutableStateFlow<Map<String, Profile>>(emptyMap())
     val profiles: StateFlow<Map<String, Profile>> = _profiles.asStateFlow()
     private val queriedProfiles = mutableSetOf<String>()
 
@@ -40,7 +40,7 @@ object DataRepository {
     private var currentFollowsCreatedAt = -1L
     private val followedPubkeys = mutableSetOf<String>()
 
-    private val _newEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    internal val _newEvents = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val newEvents: SharedFlow<Unit> = _newEvents.asSharedFlow()
 
     private fun loadProfilesFromDisk(context: Context) {
