@@ -4,12 +4,6 @@ A Nostr client for Android that never holds your keys. It reads from relays
 directly and signs everything through Omostrich, your desktop signer daemon,
 over Tailscale. The nsec stays on your laptop. The phone is just a window.
 
-<p align="center">
-  <img src="docs/screenshots/feed.png" width="32%" alt="Following feed">
-  <img src="docs/screenshots/replies.png" width="32%" alt="Replies tab">
-  <img src="docs/screenshots/my-notes.png" width="32%" alt="My Notes tab">
-</p>
-
 ## How it works
 
 ```
@@ -40,20 +34,11 @@ key it already holds. The signed event comes back and the phone publishes it.
 
 ## Screenshots
 
-### Feed
-![Following feed](docs/screenshots/feed.png)
-
-### Replies
-![Replies tab](docs/screenshots/replies.png)
-
-### My Notes
-![My Notes tab](docs/screenshots/my-notes.png)
-
-### Thread view
-![Thread view](docs/screenshots/thread.png)
-
-### Compose
-![Compose sheet](docs/screenshots/compose.png)
+<p align="center">
+  <img src="docs/screenshots/feed.png" width="30%" alt="Following feed">
+  <img src="docs/screenshots/replies.png" width="30%" alt="Replies tab">
+  <img src="docs/screenshots/my-notes.png" width="30%" alt="My Notes tab">
+</p>
 
 ## What it does
 
